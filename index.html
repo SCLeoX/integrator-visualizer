@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integrator Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@600&display=swap" rel="stylesheet">
+  <style>
+    html {
+      color: #555;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    input {
+      font-family: 'Source Code Pro', monospace;
+      font-weight: 600;
+    }
+    .load-container {
+      position: fixed;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      backdrop-filter: blur(3px);
+      background-color: rgba(0, 0, 0, 0.2);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .load-text {
+      padding: 1em;
+      background-color: white;
+      box-shadow: rgb(0 0 0 / 12%) 0 0 4px, rgb(0 0 0 / 24%) 0 0 8px;
+      border-radius: 0.4em;
+    }
+    .control-panel-container {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background-color: #eee;
+      box-shadow: rgb(0 0 0 / 12%) 1px 0 2px, rgb(0 0 0 / 24%) 2px 0 3px;
+      border-radius: 1em;
+      margin-right: 1.6em;
+      width: 600px;
+      display: flex;
+      transition: transform 0.3s ease-in-out;
+      z-index: 5;
+    }
+    .control-panel {
+      flex: 1;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .control-panel-switch {
+      width: 1.6em;
+      vertical-align: middle;
+      line-height: 100vh;
+      border-top-right-radius: 1em;
+      border-bottom-right-radius: 1em;
+      cursor: pointer;
+      text-align: center;
+      border-left: dashed 1px #ccc;
+    }
+    .control-panel-scroll {
+      overflow-y: scroll;
+      overflow-x: hidden;
+      flex: 1;
+      padding: 0 1em 1em 1em;
+    }
+    .control-panel-switch:hover {
+      background-color: #f5f5f5;
+    }
+    .control-panel-switch:active {
+      background-color: #ddd;
+    }
+    .title-group-container {
+      display: flex;
+      justify-content: center;
+      margin: 2em 0 1em 0;
+    }
+    .title-group {
+      display: inline-block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .title {
+      margin: 0;
+    }
+    .subtitle-container {
+      display: flex;
+      justify-content: space-between;
+    }
+    .subtitle {
+      color: #777;
+      margin: 0;
+      font-size: 1em;
+    }
+    h3 {
+      margin: 0.8em 0 0.4em 0;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+    }
+    .input-group {
+      flex: 1;
+      display: flex;
+      margin: 0 0 0.4em 1em;
+      font-size: 1.2em;
+    }
+    .input-group > input {
+      flex: 1;
+      margin-left: 0.5em;
+      padding: 0.2em;
+      outline: none;
+    }
+    .indent {
+      margin-left: 1em;
+    }
+    .input-h-group {
+      display: flex;
+      margin-bottom: -0.4em;
+    }
+    .integrator {
+      background-color: #ddd;
+      margin: 0.5em 0;
+      padding: 0.6em;
+      border-radius: 0.6em;
+    }
+    .integrator-title {
+      display: flex;
+    }
+    .integrator-title > h3 {
+      margin: 0 0 0 0.3em;
+
+    }
+    .graph-svg {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+    p {
+      text-align: justify;
+      margin: 0.4em 0 0 0;
+    }
+    button {
+      margin-top: 1em;
+    }
+    .error {
+      font-size: 0.8em;
+      color: red;
+      font-weight: 600;
+      display: none;
+      white-space: pre-wrap;
+      font-family: 'Source Code Pro', monospace;
+      text-align: left;
+      word-break: break-all;
+    }
+    .output {
+      font-size: 0.8em;
+      color: #777;
+      font-weight: 600;
+      display: none;
+      white-space: pre-wrap;
+      font-family: 'Source Code Pro', monospace;
+      text-align: left;
+      word-break: break-all;
+    }
+    .fine-print {
+      font-size: 0.7em;
+      color: #777;
+    }
+    .color-indicator {
+      width: 0.8em;
+      height: 0.8em;
+      border-radius: 50%;
+      position: relative;
+      top: 0.2em;
+      margin-left: 0.2em;
+    }
+    .examples-container {
+      margin-top: -0.2em;
+    }
+    .examples-container button {
+      margin-top: 0.4em;
+    }
+    .examples-container li {
+      margin-left: -15px;
+    }
+  </style>
+  <!-- <script> -->
+  <script id="pyodide-worker" type="javascript/worker">
+    self.postMessage({ type: 'load', value: 'Downloading pyodide.js...' });
+    importScripts("https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js");
+
+    async function workerMain() {
+      self.postMessage({ type: 'load', value: 'Loading Python runtime...' });
+      const pyodide = await loadPyodide({
+        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.18.1/full/",
+      });
+      self.postMessage({ type: 'load', value: 'Loading sympy...' });
+      await pyodide.loadPackage('sympy');
+      self.postMessage({ type: 'load', value: 'Loading numpy...' });
+      await pyodide.loadPackage('numpy');
+      self.postMessage({ type: 'load', value: 'Initializing Python environment...' });
+      pyodide.runPython(`
+        from sympy import *
+        from sympy.parsing.sympy_parser import parse_expr
+        from sympy.parsing.sympy_parser import standard_transformations, implicit_multiplication_application
+        transformations = (standard_transformations + (implicit_multiplication_application,))
+        import numpy
+        import numpy as np
+        t = symbols("t")
+        x, y = symbols("x y", cls=Function)
+      `)
+      self.postMessage({ type: 'load', value: 'Warming up Python environment...' });
+      if (pyodide.runPython(`
+        str(parse_expr("5x+6y", transformations=transformations))
+      `) !== '5*x + 6*y') {
+        throw new Error('Sympy sanity check failed.');
+      }
+      if (pyodide.runPython(`
+        str(np.array([[1,2]]) @ np.array([[3],[4]]))
+      `) !== '[[11]]') {
+        throw new Error('Numpy sanity check failed.');
+      }
+      self.postMessage({ type: 'loadEnd' });
+      self.addEventListener('message', event => {
+        const data = event.data;
+        switch (data.type) {
+          case 'evalPython':
+            try {
+              if (data.context !== undefined) {
+                for (const key of Object.keys(data.context)) {
+                  self[key] = data.context[key];
+                }
+              }
+              const result = pyodide.runPython(data.python).toJs();
+              self.postMessage({ type: 'evalResult', result });
+            } catch (error) {
+              self.postMessage({ type: 'evalResult', error });
+            }
+            break;
+        }
+      });
+    }
+
+    workerMain().catch(error => self.postMessage({ type: 'error', error: error.message }));
+  </script>
+</head>
+<body>
+  <div id="load-container" class="load-container">
+    <div class="load-text" id="load-text">
+      Loading JavaScript...
+    </div>
+  </div>
+  <div id="control-panel-container" class="control-panel-container">
+    <div class="control-panel">
+      <div class="title-group-container">
+        <div class="title-group">
+          <h1 class="title">Integrator Visualizer</h1>
+          <div class="subtitle-container">
+            <h2 class="subtitle">By Rin Tepis</h2>
+            <h2 class="subtitle"></h2>
+          </div>
+        </div>
+      </div>
+      <div class="control-panel-scroll">
+        <h3>Equations:</h3>
+        <div class="input-group">
+          <label for="dxdt-input">dx/dt(x, y) = </label>
+          <input name="dxdt-input" id="dxdt-input" type="text" value="y">
+        </div>
+        <div class="input-group">
+          <label for="dydt-input">dy/dt(x, y) = </label>
+          <input name="dydt-input" id="dydt-input" type="text" value="-x">
+        </div>
+        <h3>Initial Conditions:</h3>
+        <div class="input-h-group">
+          <div class="input-group">
+            <label for="x0-input">x(0) = </label>
+            <input name="x0-input" id="x0-input" type="number" value="3">
+          </div>
+          <div class="input-group">
+            <label for="y0-input">y(0) = </label>
+            <input name="y0-input" id="y0-input" type="number" value="3">
+          </div>
+        </div>
+        <p class="indent">You can also click on the graph to set initial conditions.</p>
+        <h3>Time Steps:</h3>
+        <div class="input-h-group">
+          <div class="input-group">
+            <label for="dt-input">Time step (h) = </label>
+            <input name="dt-input" id="dt-input" type="number" value="0.1">
+          </div>
+          <div class="input-group">
+            <label for="nt-input"># of time steps = </label>
+            <input name="nt-input" id="nt-input" type="number" value="500">
+          </div>
+        </div>
+        <h3>Evaluate At:</h3>
+        <p class="indent" id="t-label">t = 0</label>
+        <div class="input-h-group">
+          <div class="input-group">
+            <input style="margin: 0 10px 0 0" name="ti-input" id="ti-input" type="range" min="0" max="499" value="0">
+            <button id="play-button" style="margin: 0">▶</button>
+          </div>
+        </div>
+        <input style="margin-top:0.5em;" class="indent" id="show-points" name="show-points" type="checkbox" checked="checked">
+        <label for="show-points">Show points in the graph</label>
+        <h3>Integrators:</h3>
+        <input id="show-trail" name="show-trail" type="checkbox" checked="checked">
+        <label for="show-trail">Show trail</label>
+        <div class="integrator">
+          <div class="integrator-title">
+            <input id="integrator-analyticalIntegrator-enabled" type="checkbox" checked="checked">
+            <div id="integrator-analyticalIntegrator-color-indicator" class="color-indicator" style="background-color: orangered"></div>
+            <h3>Analytical Integrator (Ground Truth)</h3>
+          </div>
+          <p>Analytical solution is provided by sympy's dsolve. A solution may not always be available. (If this is stuck, you might need to manually disable this integrator and press the "Restart Web Worker" button on the bottom.)</p>
+          <p id="integrator-analyticalIntegrator-status">Status: Idle</p>
+          <p class="output" id="integrator-analyticalIntegrator-position"></p>
+          <p class="error" id="integrator-analyticalIntegrator-error"></p>
+          <p class="output" id="integrator-analyticalIntegrator-output"></p>
+        </div>
+        <div class="integrator">
+          <div class="integrator-title">
+            <input id="integrator-explicitEulerIntegrator-enabled" type="checkbox" checked="checked">
+            <div id="integrator-explicitEulerIntegrator-color-indicator" class="color-indicator" style="background-color: blue"></div>
+            <h3>Explicit Euler Integrator</h3>
+          </div>
+          <p id="integrator-explicitEulerIntegrator-status">Status: Idle</p>
+          <p class="output" id="integrator-explicitEulerIntegrator-position"></p>
+          <p class="error" id="integrator-explicitEulerIntegrator-error"></p>
+          <p class="output" id="integrator-explicitEulerIntegrator-output"></p>
+        </div>
+        <div class="integrator">
+          <div class="integrator-title">
+            <input id="integrator-midpointIntegrator-enabled" type="checkbox" checked="checked">
+            <div id="integrator-midpointIntegrator-color-indicator" class="color-indicator" style="background-color: green"></div>
+            <h3>Midpoint Integrator</h3>
+          </div>
+          <p id="integrator-midpointIntegrator-status">Status: Idle</p>
+          <p class="output" id="integrator-midpointIntegrator-position"></p>
+          <p class="error" id="integrator-midpointIntegrator-error"></p>
+          <p class="output" id="integrator-midpointIntegrator-output"></p>
+        </div>
+        <div class="integrator">
+          <div class="integrator-title">
+            <input id="integrator-rk4Integrator-enabled" type="checkbox" checked="checked">
+            <div id="integrator-rk4Integrator-color-indicator" class="color-indicator" style="background-color: purple"></div>
+            <h3>RK4 Integrator</h3>
+          </div>
+          <p id="integrator-rk4Integrator-status">Status: Idle</p>
+          <p class="output" id="integrator-rk4Integrator-position"></p>
+          <p class="error" id="integrator-rk4Integrator-error"></p>
+          <p class="output" id="integrator-rk4Integrator-output"></p>
+        </div>
+        <div class="integrator">
+          <div class="integrator-title">
+            <input id="integrator-implicitEulerIntegrator-enabled" type="checkbox" checked="checked">
+            <div id="integrator-implicitEulerIntegrator-color-indicator" class="color-indicator" style="background-color: darkcyan"></div>
+            <h3>Implicit Euler Integrator</h3>
+          </div>
+          <p>Partial derivatives and matrices inverses are computed by sympy.</p>
+          <p id="integrator-implicitEulerIntegrator-status">Status: Idle</p>
+          <p class="output" id="integrator-implicitEulerIntegrator-position"></p>
+          <p class="error" id="integrator-implicitEulerIntegrator-error"></p>
+          <p class="output" id="integrator-implicitEulerIntegrator-output"></p>
+        </div>
+        <h3>Miscellaneous:</h3>
+        <input id="show-vectors" name="show-vectors" type="checkbox" checked="checked">
+        <label for="show-vectors">Show vector field</label>
+        <br/>
+        <input id="show-axises" name="show-axises" type="checkbox" checked="checked">
+        <label for="show-axises">Show axises</label>
+        <br/>
+        <input id="show-crosshair" name="show-crosshair" type="checkbox" checked="checked">
+        <label for="show-crosshair">Show crosshair</label>
+        <h3>Examples:</h3>
+        <ul class="examples-container" id="examples-container"></ul>
+        <h3>Web Worker Status:</h3>
+        <p id="web-worker-evaluating">Currently running: False</p>
+        <p id="web-worker-queue-status">Tasks in queue: 0</p>
+        <p class="fine-print">This program uses a <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API">Web Worker</a> (essentially a separate thread) to run a <a target="_blank" href="https://pyodide.org/en/stable/">fully emulated Python environment</a>, as JavaScript ecosystem lacks libraries that are suitable for scientific computations. Unfortunately, due to <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements">technical limitations</a>, I cannot terminate a python computation from the main thread without restarting the entire Web Worker. Therefore, if the Python environment is stuck (for example, when evaluating an impossible integral, and for some reason sympy cannot tell that it is incapable of solving it), you have to manually press the "Restart Web Worker" button below.</p>
+        <button id="restart-web-worker-button">Restart Web Worker</button>
+      </div>
+    </div>
+    <div id="control-panel-switch" class="control-panel-switch">◀</div>
+  </div>
+
+  <svg id="svg" class="graph-svg" xmlns="http://www.w3.org/2000/svg">
+    <style>
+      .hidden {
+        display: none;
+      }
+      .hide-trail .trail {
+        display: none;
+      }
+      .hide-points .point {
+        display: none;
+      }
+      .hide-vectors .vectors {
+        display: none;
+      }
+      .hide-axises .axises {
+        display: none;
+      }
+    </style>
+    <g id="graph-panzoom-root" transform="matrix(34 0 0 34 1160 460)">
+      <path class="axises" id="axises" stroke="black"></path>
+      <path class="vectors" id="vectors" fill="none" stroke="gray"></path>
+    </g>
+    <path id="crosshair-path" stroke="black"></path>
+    <text id="crosshair-x">x: 0</text>
+    <text id="crosshair-y">y: 0</text>
+  </svg>
+
+  <script src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
+  <script>
+    const $svg = document.getElementById('svg');
+    const $webWorkerEvaluating = document.getElementById('web-worker-evaluating');
+    const $webWorkerQueueStatus = document.getElementById('web-worker-queue-status');
+
+    /** New SVG node */
+    function nsn(tagName, attributes) {
+      var node = document.createElementNS('http://www.w3.org/2000/svg', tagName);
+      for (const [key, value] of Object.entries(attributes)) {
+        node.setAttribute(key, value);
+      }
+      return node;
+    }
+    
+    function isSafeNumber(n) {
+      return Math.abs(n) < 1e6;
+    }
+    function clampNumber(n) {
+      return n;
+    }
+
+    const $panzoomRoot = document.getElementById('graph-panzoom-root');
+    const pz = panzoom($panzoomRoot, {
+      maxZoom: 100000,
+      minZoom: 0.01,
+    });
+    const $controlPanelSwitch = document.getElementById('control-panel-switch');
+    const $controlPanelContainer = document.getElementById('control-panel-container');
+    let cpOpen = true;
+    $controlPanelSwitch.addEventListener('click', () => {
+      if (cpOpen) {
+        $controlPanelContainer.style.transform = 'translateX(calc(-600px + 1.6em))';
+        $controlPanelSwitch.innerText = '▶';
+        cpOpen = false;
+      } else {
+        $controlPanelContainer.style.transform = 'translateX(0)';
+        $controlPanelSwitch.innerText = '◀';
+        cpOpen = true;
+      } 
+    });
+
+    const $loadText = document.getElementById('load-text');
+    const $loadContainer = document.getElementById('load-container');
+    async function main() {
+      const pyodideBlob = new Blob([document.getElementById('pyodide-worker').textContent], { type: "text/javascript" });
+      let pyodideWorker = new Worker(window.URL.createObjectURL(pyodideBlob));
+      const evalQueue = [];
+      let currentTask = null;
+      let evaluating = false;
+      function updateQueueStatus() {
+        $webWorkerEvaluating.innerText = `Currently running: ${evaluating ? 'True' : 'False'}`;
+        $webWorkerQueueStatus.innerText = `Tasks in queue: ${evalQueue.length + (+evaluating)}`;
+      }
+      function startQueue() {
+        if (evaluating) {
+          return;
+        }
+        if (evalQueue.length === 0) {
+          return;
+        }
+        evaluating = true;
+        currentTask = evalQueue.shift();
+        updateQueueStatus();
+        const { python, context, onStart } = currentTask;
+        if (onStart !== undefined) {
+          onStart();
+        }
+        pyodideWorker.postMessage({ type: 'evalPython', python, context });
+      }
+      function evalPython(python, context, onStart) {
+        let resolve;
+        let reject;
+        const promise = new Promise((r1, r2) => { resolve = r1; reject = r2; });;
+        const task = {
+          python,
+          context,
+          onStart,
+          resolve,
+          reject,
+        };
+        evalQueue.push(task);
+        updateQueueStatus();
+        promise.cancel = () => {
+          const index = evalQueue.indexOf(task);
+          if (index !== -1) {
+            evalQueue.splice(index, 1);
+            updateQueueStatus();
+          }
+        };
+        startQueue();
+        return promise;
+      }
+      function loadWebWorker() {
+        return new Promise(resolve => {
+          pyodideWorker.addEventListener('message', event => {
+            const msg = event.data;
+            switch (msg.type) {
+              case 'load':
+                $loadText.innerText = msg.value;
+                break;
+              case 'loadEnd':
+                $loadContainer.style.display = 'none';
+                resolve();
+                break;
+              case 'error':
+                $loadText.innerText = msg.error;
+                break;
+              case 'evalResult':
+                if (msg.error !== undefined) {
+                  currentTask.reject(new Error(msg.error));
+                } else {
+                  currentTask.resolve(msg.result);
+                }
+                evaluating = false;
+                updateQueueStatus();
+                startQueue();
+                break;
+            }
+          });
+        });
+      }
+      await loadWebWorker();
+      const $dxdtInput = document.getElementById('dxdt-input');
+      const $dydtInput = document.getElementById('dydt-input');
+      const $x0Input = document.getElementById('x0-input');
+      const $y0Input = document.getElementById('y0-input');
+      const $dtInput = document.getElementById('dt-input');
+      const $ntInput = document.getElementById('nt-input');
+      function analyticalIntegrator(dxdt, dydt, x0, y0, dt, nt, onStart) {
+        return evalPython(`
+          from js import dxdt_expr, dydt_expr, x0, y0, dt, nt
+          from sympy.solvers.ode.systems import dsolve_system
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          solutions = dsolve([
+            Eq(x(t).diff(t), dxdt.subs(symbols("x"), x(t)).subs(symbols("y"), y(t))),
+            Eq(y(t).diff(t), dydt.subs(symbols("x"), x(t)).subs(symbols("y"), y(t))),
+          ])
+          C1, C2 = symbols("C1 C2")
+          initial_conditions = solve([
+            Eq(x0, solutions[0].rhs.subs(t, 0)),
+            Eq(y0, solutions[1].rhs.subs(t, 0)),
+          ])
+          if isinstance(initial_conditions, list):
+            if len(initial_conditions) == 0:
+              raise Exception("Failed to solve for initial conditions.")
+            initial_conditions = initial_conditions[0]
+          solutions = [
+            solutions[0].subs(C1, initial_conditions[C1]).subs(C2, initial_conditions[C2]).rhs,
+            solutions[1].subs(C1, initial_conditions[C1]).subs(C2, initial_conditions[C2]).rhs,
+          ]
+          xs, ys = [], []
+          try: 
+            with np.errstate(divide='ignore', invalid='ignore'):
+              fx = lambdify(t, solutions[0], "numpy")
+              fy = lambdify(t, solutions[1], "numpy")
+              for i in range(nt):
+                xs.append(fx(i * dt))
+                ys.append(fy(i * dt))
+          except ZeroDivisionError:
+            pass
+          except OverflowError:
+            pass
+          [xs, ys, "x(t) = " + str(solutions[0]) + "\\ny(t) = " + str(solutions[1])]
+        `, {
+          dxdt_expr: dxdt,
+          dydt_expr: dydt,
+          x0, y0, dt: dt / 5, nt : nt * 5,
+        }, onStart);
+      }
+      function explicitEulerIntegrator(dxdt, dydt, x0, y0, dt, nt, onStart) {
+        return evalPython(`
+          from js import dxdt_expr, dydt_expr, x0, y0, dt, nt
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          fdxdt = lambdify([x, y], dxdt, "numpy")
+          fdydt = lambdify([x, y], dydt, "numpy")
+          xs, ys = [], []
+          try: 
+            for i in range(nt):
+              xs.append(x0)
+              ys.append(y0)
+              x0, y0 = (x0 + dt * fdxdt(x0, y0), y0 + dt * fdydt(x0, y0))
+              if x0 > 1e30 or x0 < -1e30 or y0 > 1e30 or y0 < -1e30:
+                break
+          except ZeroDivisionError:
+            pass
+          except OverflowError:
+            pass
+          [xs, ys]
+        `, {
+          dxdt_expr: dxdt,
+          dydt_expr: dydt,
+          x0, y0, dt, nt,
+        }, onStart);
+      }
+      function midpointIntegrator(dxdt, dydt, x0, y0, dt, nt, onStart) {
+        return evalPython(`
+          from js import dxdt_expr, dydt_expr, x0, y0, dt, nt
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          fdxdt = lambdify([x, y], dxdt, "numpy")
+          fdydt = lambdify([x, y], dydt, "numpy")
+          xs, ys = [], []
+          try: 
+            for i in range(nt):
+              xs.append(x0)
+              ys.append(y0)
+              x_mid, y_mid = (x0 + dt / 2 * fdxdt(x0, y0), y0 + dt / 2 * fdydt(x0, y0))
+              x0, y0 = (x0 + dt * fdxdt(x_mid, y_mid), y0 + dt * fdydt(x_mid, y_mid))
+              if x0 > 1e30 or x0 < -1e30 or y0 > 1e30 or y0 < -1e30:
+                break
+          except ZeroDivisionError:
+            pass
+          except OverflowError:
+            pass
+          [xs, ys]
+        `, {
+          dxdt_expr: dxdt,
+          dydt_expr: dydt,
+          x0, y0, dt, nt,
+        }, onStart);
+      }
+      function rk4Integrator(dxdt, dydt, x0, y0, dt, nt, onStart) {
+        return evalPython(`
+          from js import dxdt_expr, dydt_expr, x0, y0, dt, nt
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          fdxdt = lambdify([x, y], dxdt, "numpy")
+          fdydt = lambdify([x, y], dydt, "numpy")
+          xs, ys = [], []
+          try: 
+            for i in range(nt):
+              xs.append(x0)
+              ys.append(y0)
+              kx1 = dt * fdxdt(x0, y0)
+              ky1 = dt * fdydt(x0, y0)
+              kx2 = dt * fdxdt(x0 + kx1 / 2, y0 + ky1 / 2)
+              ky2 = dt * fdydt(x0 + kx1 / 2, y0 + ky1 / 2)
+              kx3 = dt * fdxdt(x0 + kx2 / 2, y0 + ky2 / 2)
+              ky3 = dt * fdydt(x0 + kx2 / 2, y0 + ky2 / 2)
+              kx4 = dt * fdxdt(x0 + kx3, y0 + ky3)
+              ky4 = dt * fdydt(x0 + kx3, y0 + ky3)
+              x0, y0 = (x0 + (kx1 + 2 * kx2 + 2 * kx3 + kx4) / 6, y0 + (ky1 + 2 * ky2 + 2 * ky3 + ky4) / 6)
+              if x0 > 1e30 or x0 < -1e30 or y0 > 1e30 or y0 < -1e30:
+                break
+          except ZeroDivisionError:
+            pass
+          except OverflowError:
+            pass
+          [xs, ys]
+        `, {
+          dxdt_expr: dxdt,
+          dydt_expr: dydt,
+          x0, y0, dt, nt,
+        }, onStart);
+      }
+      function implicitEulerIntegrator(dxdt, dydt, x0, y0, dt, nt, onStart) {
+        return evalPython(`
+          from js import dxdt_expr, dydt_expr, x0, y0, dt, nt
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          xvar, yvar = symbols("x y")
+          delta = (Matrix([[1 / dt, 0], [0, 1 / dt]]) - Matrix([[diff(dxdt, xvar), diff(dxdt, yvar)], [diff(dydt, xvar), diff(dydt, yvar)]])).inv() @ Matrix([[dxdt], [dydt]])
+          deltaX = lambdify([xvar, yvar], delta[0], "numpy")
+          deltaY = lambdify([xvar, yvar], delta[1], "numpy")
+          xs, ys = [], []
+          try: 
+            for i in range(nt):
+              xs.append(x0)
+              ys.append(y0)
+              x0 += deltaX(x0, y0)
+              y0 += deltaY(x0, y0)
+              if x0 > 1e30 or x0 < -1e30 or y0 > 1e30 or y0 < -1e30:
+                break
+          except ZeroDivisionError:
+            pass
+          except OverflowError:
+            pass
+          [xs, ys]
+        `, {
+          dxdt_expr: dxdt,
+          dydt_expr: dydt,
+          x0, y0, dt, nt,
+        }, onStart);
+      }
+
+      const integrators = [explicitEulerIntegrator, midpointIntegrator, rk4Integrator, implicitEulerIntegrator, analyticalIntegrator];
+      const integratorStates = integrators.map(integrator => ({
+        integrator,
+        $svgPath: null,
+        promise: null,
+        data: null,
+        $point: null,
+      }));
+      let currentUpdateId = 0;
+      let lineWidth = 3 / 34;
+      const paths = new Set();
+
+      const $axises = document.getElementById('axises');
+      paths.add($axises);
+      const $vectors = document.getElementById('vectors');
+      paths.add($vectors);
+
+      let gridUpdatePromise = null;
+
+      let currentUpdateGridId = 0;
+      function updateGrid() {
+        currentUpdateGridId++;
+        const thisUpdateGridId = currentUpdateGridId;
+        const scale = pz.getTransform().scale;
+        const xLeft = -pz.getTransform().x / scale;
+        const xRight = xLeft + $svg.clientWidth / scale;
+        const yTop = -pz.getTransform().y / scale;
+        const yBottom = yTop + $svg.clientHeight / scale;
+        $axises.setAttribute('d', `M ${xLeft} 0 L ${xRight} 0 M 0 ${yBottom} L 0 ${yTop}`);
+
+        const density = 2 ** Math.floor(Math.log2(80 / scale));
+        if (gridUpdatePromise !== null) {
+          gridUpdatePromise.cancel();
+          gridUpdatePromise = null;
+        }
+        const gridLeft = Math.ceil(xLeft / density) * density;
+        const gridRight = Math.floor(xRight / density) * density;
+        const gridTop = Math.floor(-yTop / density) * density;
+        const gridBottom = Math.ceil(-yBottom / density) * density;
+        gridUpdatePromise = evalPython(`
+          from js import dxdt_expr, dydt_expr, grid_left, grid_right, grid_top, grid_bottom, density
+          dxdt = parse_expr(dxdt_expr, transformations=transformations)
+          dydt = parse_expr(dydt_expr, transformations=transformations)
+          fdxdt = lambdify([x, y], dxdt, "numpy")
+          fdydt = lambdify([x, y], dydt, "numpy")
+          grid = []
+
+          max_squared = 1e-10
+          yv = grid_bottom
+          while yv <= grid_top:
+            xv = grid_left
+            while xv <= grid_right:
+              try:
+                dxdtv = fdxdt(xv, yv)
+                dydtv = fdydt(xv, yv)
+                max_squared = max(max_squared, abs(dxdtv) ** 2 + abs(dydtv) ** 2)
+                grid.append([xv, yv, dxdtv, dydtv])
+              except ZeroDivisionError:
+                pass
+              except OverflowError:
+                pass
+              xv += density
+            yv += density
+
+          [grid, max_squared ** 0.5]
+        `, {
+          dxdt_expr: $dxdtInput.value.replace(/\^/g, '**'),
+          dydt_expr: $dydtInput.value.replace(/\^/g, '**'),
+          grid_left: gridLeft,
+          grid_right: gridRight,
+          grid_top: gridTop,
+          grid_bottom: gridBottom,
+          density,
+        });
+        gridUpdatePromise.then(result => {
+          const [grid, maxLength] = result;
+          const scale = pz.getTransform().scale;
+          const d = grid.map(([x, y, dxdtv, dydtv]) => {
+            if (dxdtv === 0 && dydtv === 0) {
+              return '';
+            }
+            const length = Math.sqrt(dxdtv ** 2 + dydtv ** 2);
+            if (length < maxLength * 0.16) {
+              dxdtv *= maxLength * 0.16 / length;
+              dydtv *= maxLength * 0.16 / length;
+            }
+            const p0x = x;
+            const p0y = -y;
+            const p1x = x + dxdtv / maxLength / scale * 40;
+            const p1y = -y - dydtv / maxLength / scale * 40;
+            const deltaX = p1x - p0x;
+            const deltaY = p1y - p0y;
+            const mag = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+            const nDeltaX = deltaX / mag * 4 / scale;
+            const nDeltaY = deltaY / mag * 4 / scale;
+            const p2x = p1x - nDeltaX - nDeltaY;
+            const p2y = p1y - nDeltaY + nDeltaX;
+            const p3x = p1x - nDeltaX + nDeltaY;
+            const p3y = p1y - nDeltaY - nDeltaX;
+            if ([p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y].some(x => Number.isNaN(x) || !Number.isFinite(x))) {
+              return '';
+            }
+            return `M ${p0x} ${p0y} L ${p1x} ${p1y} M ${p2x} ${p2y} L ${p1x} ${p1y} L ${p3x} ${p3y}`;
+          });
+          $vectors.setAttribute('d', d.join(' '));
+        });
+      }
+
+      const $tiInput = document.getElementById('ti-input');
+      const $tLabel = document.getElementById('t-label');
+
+      function updatePoints() {
+        let ti = +$tiInput.value;
+        $tLabel.innerText = 't = ' + (ti * $dtInput.value).toPrecision(8);
+        const analyticalIntegratorState = integratorStates.find(state => state.integrator === analyticalIntegrator);
+        let ax = undefined;
+        let ay = undefined;
+        if (analyticalIntegratorState.data !== null) {
+          ax = analyticalIntegratorState.data[0][ti * 5];
+          ay = analyticalIntegratorState.data[1][ti * 5];
+        }
+        for (const { $point, data, integrator } of integratorStates) {
+          const $position = document.getElementById(`integrator-${integrator.name}-position`);
+          if ($point === null || data === null) {
+            $position.style.display = 'none';
+            continue;
+          }
+          if (integrator.name === 'analyticalIntegrator') {
+            ti *= 5;
+          }
+          const x = data[0][ti];
+          const y = data[1][ti];
+          if (typeof x === 'number' && typeof y === 'number') {
+            $point.setAttribute('cx', x);
+            $point.setAttribute('cy', -y);
+            $point.classList.remove('hidden');
+            $position.innerText = `Position: (${x.toPrecision(8)}, ${y.toPrecision(8)})`;
+            $position.style.display = 'block';
+            if (typeof ax === 'number' && typeof ay === 'number') {
+              const distance = Math.sqrt((x - ax) ** 2 + (y - ay) ** 2);
+              $position.innerText += `\nError: ${distance.toPrecision(8)}`;
+            }
+          } else {
+            $point.classList.add('hidden');
+          }
+        }
+      }
+
+      $tiInput.addEventListener('input', updatePoints);
+
+      let playing = true;
+      const $playButton = document.getElementById('play-button');
+      $playButton.addEventListener('click', () => {
+        playing = !playing;
+        if (playing) {
+          $playButton.innerText = '▶';
+        } else {
+          $playButton.innerText = '▷';
+        }
+      });
+
+      function animate() {
+        if (playing) {
+          const ti = +$tiInput.value;
+          if (ti < $tiInput.max) {
+            $tiInput.value = String(ti + 1);
+          } else {
+            $tiInput.value = '0';
+          }
+          updatePoints();
+        }
+        requestAnimationFrame(() => requestAnimationFrame(animate));
+      }
+      requestAnimationFrame(animate);
+
+      function update() {
+        currentUpdateId++;
+        const thisUpdateId = currentUpdateId;
+        $tiInput.max = $ntInput.value - 1;
+        for (const integratorState of integratorStates) {
+          const integrator = integratorState.integrator;
+          const $enabledCheckbox = document.getElementById(`integrator-${integrator.name}-enabled`);
+          const $status = document.getElementById(`integrator-${integrator.name}-status`);
+          const $error = document.getElementById(`integrator-${integrator.name}-error`);
+          const $output = document.getElementById(`integrator-${integrator.name}-output`);
+          const $colorIndicator = document.getElementById(`integrator-${integrator.name}-color-indicator`);
+          if (integratorState.$svgPath !== null) {
+            paths.delete(integratorState.$svgPath);
+            integratorState.$svgPath.remove();
+            integratorState.$svgPath = null;
+          }
+          if (integratorState.promise !== null) {
+            integratorState.promise.cancel();
+            integratorState.promise = null;
+          }
+          integratorState.data = null;
+          if (integratorState.$point !== null) {
+            integratorState.$point.remove();
+            integratorState.$point = null;
+          }
+          $error.style.display = 'none';
+          $output.style.display = 'none';
+          if (!$enabledCheckbox.checked) {
+            $status.innerText = 'Status: Disabled';
+            continue;
+          }
+          $status.innerText = 'Status: In queue';
+          integratorState.promise = integrator(
+            $dxdtInput.value.replace(/\^/g, '**'),
+            $dydtInput.value.replace(/\^/g, '**'),
+            +$x0Input.value,
+            +$y0Input.value,
+            +$dtInput.value,
+            +$ntInput.value,
+            () => { $status.innerText = 'Status: Running' }
+          );
+          integratorState.promise.then(result => {
+            if (thisUpdateId !== currentUpdateId) {
+              return;
+            }
+            $status.innerText = 'Status: Finished';
+            if (result[2] !== undefined) {
+              $output.style.display = 'block';
+              $output.innerText = 'Output:\n' + result[2];
+            }
+            if (!isSafeNumber(result[0][0]) || !isSafeNumber(result[1][0])) {
+              return;
+            }
+            let path = `M ${clampNumber(result[0][0])} ${-clampNumber(result[1][0])}`;
+            for (let i = 1; i < result[0].length; i++) {
+              if (!isSafeNumber(result[0][i]) || !isSafeNumber(result[1][i])) {
+                break;
+              }
+              path += ` L ${clampNumber(result[0][i])} ${-clampNumber(result[1][i])}`;
+            }
+            const $path = nsn('path', { class: 'trail', d: path, fill: 'none', stroke: $colorIndicator.style.backgroundColor, 'stroke-width': lineWidth });
+            paths.add($path);
+            integratorState.$svgPath = $path;
+            $panzoomRoot.append($path);
+            integratorState.data = result;
+            integratorState.$point = nsn('circle', { class: 'point', fill: $colorIndicator.style.backgroundColor, stroke: 'none', r: lineWidth * 2 });
+            $panzoomRoot.append(integratorState.$point);
+            updatePoints();
+          }).catch(error => {
+            if (thisUpdateId === currentUpdateId) {
+              $status.innerText = `Status: Errored`;
+              $error.style.display = 'block';
+              $error.innerText = error;
+            }
+          });
+        }
+        if (thisUpdateId !== currentUpdateId) {
+          return;
+        }
+        updateGrid();
+      }
+      $dxdtInput.addEventListener('input', update);
+      $dydtInput.addEventListener('input', update);
+      $x0Input.addEventListener('input', update);
+      $y0Input.addEventListener('input', update);
+      $dtInput.addEventListener('input', update);
+      $ntInput.addEventListener('input', update);
+      integrators.forEach(integrator => document.getElementById(`integrator-${integrator.name}-enabled`).addEventListener('change', update));
+      update();
+
+      function updateLineWidth() {
+        const scale = pz.getTransform().scale;
+        lineWidth = 3 / scale;
+        for (const $path of paths) {
+          $path.setAttribute('stroke-width', lineWidth);
+        }
+        for (const { $point } of integratorStates) {
+          if ($point === null) {
+            continue;
+          }
+          $point.setAttribute('r', lineWidth * 2);
+        }
+      }
+
+      const $restartWebWorkerButton = document.getElementById('restart-web-worker-button');
+      $restartWebWorkerButton.addEventListener('click', () => {
+        $loadText.innerText = 'Restarting Web Worker...';
+        $loadContainer.style.display = 'flex';
+        pyodideWorker.terminate();
+        pyodideWorker = new Worker(window.URL.createObjectURL(pyodideBlob));
+        evalQueue.forEach(({ reject }) => reject(new Error('Web worker restarted')));
+        evalQueue.length = 0;
+        evaluating = false;
+        updateQueueStatus();
+        loadWebWorker();
+      });
+
+      let crosshairX = 0;
+      let crosshairY = 0;
+
+      let mouseX = 0;
+      let mouseY = 0;
+
+      const $crosshairPath = document.getElementById('crosshair-path');
+      const $crosshairX = document.getElementById('crosshair-x');
+      const $crosshairY = document.getElementById('crosshair-y');
+
+      function updateCrosshair() {
+        const transform = pz.getTransform();
+        crosshairX = (mouseX - transform.x) / transform.scale;
+        crosshairY = -(mouseY - transform.y) / transform.scale;
+        $crosshairX.textContent = `x: ${crosshairX.toPrecision(8)}`;
+        $crosshairY.textContent = `y: ${crosshairY.toPrecision(8)}`;
+        $crosshairX.setAttribute('x', mouseX + 5);
+        $crosshairX.setAttribute('y', mouseY - 20);
+        $crosshairY.setAttribute('x', mouseX + 5);
+        $crosshairY.setAttribute('y', mouseY - 5);
+        $crosshairPath.setAttribute('d',  `M 0 ${mouseY} L ${$svg.clientWidth} ${mouseY} M ${mouseX} 0 L ${mouseX} ${$svg.clientHeight}`);
+      }
+
+      $svg.addEventListener('mousemove', event => {
+        mouseX = event.clientX;
+        mouseY = event.clientY;
+        updateCrosshair();
+      });
+
+      let downState = null;
+      $svg.addEventListener('mousedown', event => {
+        downState = {
+          x: event.clientX,
+          y: event.clientY,
+          time: Date.now(),
+        };
+      });
+
+      $svg.addEventListener('mouseup', event => {
+        if (downState === null) {
+          return;
+        }
+        const distSquared = (event.clientX - downState.x) ** 2 + (event.clientY - downState.y) ** 2;
+        if (distSquared > 30) {
+          return;
+        }
+        const time = Date.now() - downState.time;
+        if (time > 300) {
+          return;
+        }
+        $x0Input.value = String(crosshairX);
+        $y0Input.value = String(crosshairY);
+        $tiInput.value = '0';
+        update();
+        updatePoints();
+      });
+
+      pz.on('pan', () => {
+        updateGrid();
+        updateCrosshair();
+      });
+
+      pz.on('zoom', () => {
+        updateLineWidth();
+        updateGrid();
+        updateCrosshair();
+      });
+
+      window.addEventListener('resize', () => {
+        updateGrid();
+        updateCrosshair();
+      });
+      
+      updateLineWidth();
+      
+      const $showTrail = document.getElementById('show-trail');
+      $showTrail.addEventListener('change', () => {
+        $panzoomRoot.classList.toggle('hide-trail', !$showTrail.checked);
+      });
+      const $hidePoints = document.getElementById('show-points');
+      $hidePoints.addEventListener('change', () => {
+        $panzoomRoot.classList.toggle('hide-points', !$hidePoints.checked);
+      });
+      const $showVectors = document.getElementById('show-vectors');
+      $showVectors.addEventListener('change', () => {
+        $panzoomRoot.classList.toggle('hide-vectors', !$showVectors.checked);
+      });
+      const $showAxises = document.getElementById('show-axises');
+      $showAxises.addEventListener('change', () => {
+        $panzoomRoot.classList.toggle('hide-axises', !$showAxises.checked);
+      });
+      const $showCrosshair = document.getElementById('show-crosshair');
+      $showCrosshair.addEventListener('change', () => {
+        $crosshairPath.classList.toggle('hidden', !$showCrosshair.checked);
+        $crosshairX.classList.toggle('hidden', !$showCrosshair.checked);
+        $crosshairY.classList.toggle('hidden', !$showCrosshair.checked);
+      });
+
+      window.export = function(name) {
+        console.info(JSON.stringify({
+          name,
+          analytical: document.getElementById('integrator-analyticalIntegrator-enabled').checked,
+          dxdt: $dxdtInput.value,
+          dydt: $dydtInput.value,
+          x0: +$x0Input.value,
+          y0: +$y0Input.value,
+          dt: +$dtInput.value,
+          nt: +$ntInput.value,
+        }));
+      };
+
+      const $examplesContainer = document.getElementById('examples-container');
+      const examples = [
+        {"name":"Bead on Wire - OK","analytical":true,"dxdt":"-x","dydt":"-8y","x0":10,"y0":6,"dt":0.1,"nt":90},
+        {"name":"Bead on Wire - Oscillation","analytical":true,"dxdt":"-x","dydt":"-8y","x0":10,"y0":6,"dt":0.2,"nt":60},
+        {"name":"Bead on Wire - Explosion","analytical":true,"dxdt":"-x","dydt":"-8y","x0":10,"y0":6,"dt":0.3,"nt":30},
+        {"name":"A Lot of Whirlpools","analytical":false,"dxdt":"sin(y)","dydt":"sin(x)","x0":2.5,"y0":1,"dt":0.1,"nt":500},
+        {"name":"Dropping A Ball (x = velocity, y = position)","analytical":true,"dxdt":"-9.8","dydt":"x","x0":0,"y0":20,"dt":0.05,"nt":40},
+        {"name":"Calculus 1","analytical":true,"dxdt":"1","dydt":"x^3-5x^2+4x","x0":0,"y0":0,"dt":0.05,"nt":120},
+        {"name":"Circle or Spiral? (Default)","analytical":true,"dxdt":"y","dydt":"-x","x0":3,"y0":3,"dt":0.1,"nt":500},
+      ];
+      for (const example of examples) {
+        const $btn = document.createElement('button');
+        $btn.innerText = example.name;
+        $btn.addEventListener('click', () => {
+          document.getElementById('integrator-analyticalIntegrator-enabled').checked = example.analytical;
+          $dxdtInput.value = example.dxdt;
+          $dydtInput.value = example.dydt;
+          $x0Input.value = String(example.x0);
+          $y0Input.value = String(example.y0);
+          $dtInput.value = String(example.dt);
+          $ntInput.value = String(example.nt);
+          update();
+        });
+        const $li = document.createElement('li');
+        $li.appendChild($btn);
+        $examplesContainer.appendChild($li);
+      }
+    }
+    main();
+  </script>
+</body>
+</html>
